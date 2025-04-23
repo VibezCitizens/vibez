@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibez Citizens</title>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+  <style>
+    :root {
+      --primary-color: #fe01fe;
+      --bg-color: #f0f2f5;
+      --text-color: #333;
+      --font-family: 'Raleway', sans-serif;
+      --card-radius: 12px;
+      --transition: 0.3s ease;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { height: 100%; font-family: var(--font-family); background: var(--bg-color); color: var(--text-color); }
+    .app-container { display: flex; flex-direction: column; height: 100%; }
+    header {
+      background: linear-gradient(135deg, #fe01fe 0%, #d001d9 100%);
+      color: #fff;
+      padding: 1rem 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      text-align: center;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+    .logo { letter-spacing: 1px; }
+    main { flex: 1; overflow-y: auto; padding: 1rem; }
+    section { display: none; }
+    section.active { display: block; }
+    .stories-container { display: flex; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 1rem; }
+    .story { flex: 0 0 auto; margin-right: 1rem; text-align: center; transition: transform var(--transition); }
+    .story:hover { transform: scale(1.1); }
+    .story img { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary-color); }
+    .story p { font-size: 0.75rem; margin-top: 0.25rem; color: #555; }
+    .post { background: #fff; padding: 1rem; border-radius: var(--card-radius); box-shadow: 0 2px 6px rgba(0,0,0,0.05); margin-bottom: 1rem; transition: transform var(--transition), box-shadow var(--transition); }
+    .post:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .post h3 { color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 500; }
+    .post p { line-height: 1.4; }
+    .post img { width: 100%; border-radius: var(--card-radius); margin-top: 0.75rem; }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; border-top: 1px solid #ddd; display: flex; justify-content: space-around; padding: 0.5rem 0; z-index: 10; }
+    .bottom-nav button { background: transparent; border: none; font-size: 0.75rem; color: #888; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: color var(--transition); }
+    .bottom-nav button.active { color: var(--primary-color); }
+    .bottom-nav button span { font-size: 1.4rem; margin-bottom: 0.2rem; }
+    /* Hidden camera input */
+    #camera-input { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="logo">Vibez Citizens</header>
+    <main>
+      <section id="feed" class="active">
+        <div class="stories-container" id="stories"></div>
+        <div id="posts"></div>
+      </section>
+      <section id="messages"><ul class="chat-list"></ul></section>
+      <section id="notifications"><ul class="notif-list"></ul></section>
+      <section id="profile">
+        <div class="profile-header">
+          <img src="user-avatar.jpg" alt="User Avatar" class="profile-pic">
+          <h3>Jane Doe</h3>
+        </div>
+        <div class="profile-posts"></div>
+      </section>
+    </main>
+    <nav class="bottom-nav">
+      <button data-target="feed" class="active"><span>🏠</span>Home</button>
+      <button id="open-camera"><span>📷</span>Camera</button>
+      <button data-target="messages"><span>💬</span>Msgs</button>
+      <button data-target="notifications"><span>🔔</span>Notifs</button>
+      <button data-target="profile"><span>👤</span>Profile</button>
+    </nav>
+
+    <!-- Hidden input for camera capture -->
+    <input type="file" accept="image/*" capture="environment" id="camera-input">
+
+    <!-- Templates -->
+    <template id="story-template">
+      <div class="story">
+        <img src="" alt="Story">
+        <p></p>
+      </div>
+    </template>
+    <template id="post-template">
+      <div class="post">
+        <h3></h3>
+        <p></p>
+        <img src="" alt="Post Image" style="display:none;">
+      </div>
+    </template>
+  </div>
+  <script>
+    // Section navigation & camera trigger
+    const sections = document.querySelectorAll('main section');
+    const navButtons = document.querySelectorAll('.bottom-nav button');
+    const cameraBtn = document.getElementById('open-camera');
+    const cameraInput = document.getElementById('camera-input');
+
+    navButtons.forEach(btn => btn.addEventListener('click', e => {
+      if (btn.id === 'open-camera') return cameraInput.click();
+      sections.forEach(s => s.classList.remove('active'));
+      document.getElementById(btn.dataset.target).classList.add('active');
+      navButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }));
+
+    // Handle camera capture
+    cameraInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      // Create a new post using template
+      const tpl = document.getElementById('post-template').content.cloneNode(true);
+      tpl.querySelector('h3').textContent = 'New Photo';
+      tpl.querySelector('p').textContent = '';
+      const img = tpl.querySelector('img');
+      img.src = url; img.style.display = 'block';
+      document.getElementById('posts').prepend(tpl);
+      e.target.value = null; // reset input
+    });
+  </script>
+</body>
+</html>
